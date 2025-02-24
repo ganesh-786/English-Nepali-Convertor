@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Form with Auto Translation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .form-container {
+            max-width: 800px;
+            margin: auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .form-group {
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        /* Floating panel for translation */
+        .floating-panel {
+            position: absolute;
+            right: -340px;
+            top: 0;
+            width: 300px;
+            background-color: #e6f7ff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: -2px 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .floating-panel p {
+            margin: 5px 0;
+        }
+
+        .floating-panel button {
+            padding: 5px 10px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .floating-panel button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Responsive: for small screens, show floating panel below input */
+        @media (max-width: 768px) {
+            .floating-panel {
+                position: static;
+                width: 100%;
+                margin-top: 10px;
+            }
+        }
+
+        button.submit-btn {
+            padding: 10px 15px;
+            border: none;
+            background-color: #28a745;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button.submit-btn:hover {
+            background-color: #1e7e34;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="form-container">
+        <h1>Form Submission</h1>
+        <form id="userForm">
+            <!-- Name Field -->
+            <div class="form-group" id="group-name">
+                <label for="englishName">Name</label>
+                <input type="text" id="englishName" placeholder="Enter your name in English">
+                <div class="floating-panel" id="panel-name">
+                    <p><strong>Nepali Translation:</strong></p>
+                    <p id="translatedName">--</p>
+                    <button type="button" onclick="confirmTranslation('name')">Confirm</button>
+                </div>
+            </div>
+            <!-- Address Field -->
+            <div class="form-group" id="group-address">
+                <label for="englishAddress">Address</label>
+                <input type="text" id="englishAddress" placeholder="Enter your address in English">
+                <div class="floating-panel" id="panel-address">
+                    <p><strong>Nepali Translation:</strong></p>
+                    <p id="translatedAddress">--</p>
+                    <button type="button" onclick="confirmTranslation('address')">Confirm</button>
+                </div>
+            </div>
+            <!-- Father's Name Field -->
+            <div class="form-group" id="group-father">
+                <label for="englishFather">Father's Name</label>
+                <input type="text" id="englishFather" placeholder="Enter your father's name in English">
+                <div class="floating-panel" id="panel-father">
+                    <p><strong>Nepali Translation:</strong></p>
+                    <p id="translatedFather">--</p>
+                    <button type="button" onclick="confirmTranslation('father')">Confirm</button>
+                </div>
+            </div>
+            <!-- Mother's Name Field -->
+            <div class="form-group" id="group-mother">
+                <label for="englishMother">Mother's Name</label>
+                <input type="text" id="englishMother" placeholder="Enter your mother's name in English">
+                <div class="floating-panel" id="panel-mother">
+                    <p><strong>Nepali Translation:</strong></p>
+                    <p id="translatedMother">--</p>
+                    <button type="button" onclick="confirmTranslation('mother')">Confirm</button>
+                </div>
+            </div>
+            <!-- Citizenship Number Field -->
+            <div class="form-group" id="group-citizenship">
+                <label for="englishCitizenship">Citizenship Number</label>
+                <input type="text" id="englishCitizenship" placeholder="Enter your citizenship number in English">
+                <div class="floating-panel" id="panel-citizenship">
+                    <p><strong>Nepali Translation:</strong></p>
+                    <p id="translatedCitizenship">--</p>
+                    <button type="button" onclick="confirmTranslation('citizenship')">Confirm</button>
+                </div>
+            </div>
+            <button type="submit" class="submit-btn">Submit</button>
+        </form>
+    </div>
+
+    <script>
+        // Debounce function to limit API calls while typing
+        function debounce(func, delay) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
+
+        // Translation function using MyMemory API with enhanced parameters for better accuracy
+        async function translateToNepali(text) {
+            const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ne&mt=1&onlyprivate=0`;
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                if (data.responseData && data.responseData.translatedText) {
+                    return data.responseData.translatedText;
+                } else if (data.matches && data.matches.length > 0) {
+                    return data.matches[0].translation;
+                }
+                return "Translation not found.";
+            } catch (error) {
+                console.error("Translation error:", error);
+                return "Failed to translate. Please try again.";
+            }
+        }
+
+        // Mapping of field keys to corresponding element IDs
+        const fields = [
+            { key: "name", english: "englishName", translated: "translatedName" },
+            { key: "address", english: "englishAddress", translated: "translatedAddress" },
+            { key: "father", english: "englishFather", translated: "translatedFather" },
+            { key: "mother", english: "englishMother", translated: "translatedMother" },
+            { key: "citizenship", english: "englishCitizenship", translated: "translatedCitizenship" }
+        ];
+
+        // Set up auto translation for each field
+        fields.forEach(field => {
+            const englishInput = document.getElementById(field.english);
+            const translatedOutput = document.getElementById(field.translated);
+
+            // Debounced translation call
+            const debouncedTranslate = debounce(async () => {
+                const text = englishInput.value.trim();
+                if (text) {
+                    const translation = await translateToNepali(text);
+                    translatedOutput.textContent = translation;
+                } else {
+                    translatedOutput.textContent = "--";
+                }
+            }, 500);
+
+            // Update translation when user types if field not yet confirmed (editable)
+            englishInput.addEventListener("input", () => {
+                // Only update if field is not locked (i.e. not readOnly)
+                if (!englishInput.readOnly) {
+                    debouncedTranslate();
+                }
+            });
+        });
+
+        // Confirm function: replace english input with translated text and lock the field
+        function confirmTranslation(fieldKey) {
+            const field = fields.find(f => f.key === fieldKey);
+            if (field) {
+                const englishInput = document.getElementById(field.english);
+                const translatedOutput = document.getElementById(field.translated);
+                if (translatedOutput.textContent !== "--" && translatedOutput.textContent !== "") {
+                    englishInput.value = translatedOutput.textContent;
+                    englishInput.readOnly = true;
+                    // Optionally, hide the floating panel after confirmation
+                    const panel = document.getElementById("panel-" + fieldKey);
+                    panel.style.display = "none";
+                } else {
+                    alert("Translation not available.");
+                }
+            }
+        }
+
+        // Handle form submission (for demonstration)
+        document.getElementById("userForm").addEventListener("submit", function (e) {
+            e.preventDefault();
+            const formData = {};
+            fields.forEach(field => {
+                formData[field.english] = document.getElementById(field.english).value;
+            });
+            console.log("Form Data Submitted:", formData);
+            alert("Form submitted! Check the console for data.");
+            userForm.reset();
+        });
+    </script>
+</body>
+
+</html>

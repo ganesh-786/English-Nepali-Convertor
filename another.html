@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auto Translate to Nepali</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            width: 600px;
+            text-align: center;
+            overflow-y: auto;
+            max-height: 90vh;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: #f9f9f9;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            resize: none;
+        }
+
+        .suggestions {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-radius: 5px;
+            text-align: left;
+        }
+
+        .confirmation {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+
+        .confirmation input {
+            margin-right: 5px;
+        }
+
+        button {
+            padding: 8px 12px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>English to Nepali Auto Translate</h1>
+        <div id="inputFields"></div>
+        <button onclick="addInputField()">Add Input Field</button>
+        <div class="suggestions" id="nameSuggestions" style="display:none;"></div>
+    </div>
+
+    <script>
+        // Debounce function to limit API calls while typing
+        function debounce(func, delay) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
+
+        // Improved translation function using MyMemory API with mt=1 (machine translation flag)
+        async function translateToNepali(text) {
+            const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ne&mt=1`;
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                if (data.responseData && data.responseData.translatedText) {
+                    return data.responseData.translatedText;
+                } else if (data.matches && data.matches.length > 0) {
+                    return data.matches[0].translation;
+                }
+                return "Translation not found.";
+            } catch (error) {
+                console.error("Translation error:", error);
+                return "Failed to translate. Please try again.";
+            }
+        }
+
+        // Suggest common names if found in the english text
+        function suggestNames(text) {
+            const commonNames = ["Ram", "Shyam", "Sita", "Gita", "Krishna", "Hari"];
+            const nepaliNames = { "Ram": "राम", "Shyam": "श्याम", "Sita": "सीता", "Gita": "गीता", "Krishna": "कृष्ण", "Hari": "हरि" };
+            const suggestions = commonNames.filter(name => text.toLowerCase().includes(name.toLowerCase()));
+            const suggestionBox = document.getElementById("nameSuggestions");
+            if (suggestions.length > 0) {
+                const nepaliSuggestions = suggestions.map(name => `${name} (${nepaliNames[name]})`).join(", ");
+                suggestionBox.style.display = "block";
+                suggestionBox.innerHTML = `Common names found: ${nepaliSuggestions}`;
+            } else {
+                suggestionBox.style.display = "none";
+            }
+        }
+
+        // Create a new input group with auto translation on input
+        function addInputField() {
+            const fieldId = Date.now();
+            const fieldContainer = document.createElement("div");
+            fieldContainer.classList.add("input-group");
+            fieldContainer.innerHTML = `
+        <textarea id="inputText-${fieldId}" placeholder="Type in English..."></textarea>
+        <textarea id="translatedText-${fieldId}" placeholder="Translated Nepali will appear here..."></textarea>
+        <div class="confirmation">
+          <input type="checkbox" id="confirmMatch-${fieldId}">
+          <label for="confirmMatch-${fieldId}">Confirm if translation matches</label>
+        </div>
+      `;
+            document.getElementById("inputFields").appendChild(fieldContainer);
+
+            // Get element references for current field group
+            const englishText = document.getElementById(`inputText-${fieldId}`);
+            const nepaliText = document.getElementById(`translatedText-${fieldId}`);
+            const confirmCheckbox = document.getElementById(`confirmMatch-${fieldId}`);
+
+            // Debounced auto-translation on input in english text area
+            const debouncedTranslate = debounce(async () => {
+                if (englishText.value.trim()) {
+                    const translation = await translateToNepali(englishText.value.trim());
+                    nepaliText.value = translation;
+                    suggestNames(englishText.value.trim());
+                    confirmCheckbox.checked = englishText.value.trim() === nepaliText.value.trim();
+                } else {
+                    nepaliText.value = "";
+                }
+            }, 500);
+
+            // Attach event listener for english text auto-translation
+            englishText.addEventListener("input", () => {
+                // If confirmed, do not allow changes
+                if (!confirmCheckbox.checked) {
+                    debouncedTranslate();
+                }
+            });
+
+            // Listen for manual changes in translated text to update confirmation status
+            nepaliText.addEventListener("input", () => {
+                if (!confirmCheckbox.checked) {
+                    confirmCheckbox.checked = englishText.value.trim() === nepaliText.value.trim();
+                }
+            });
+
+            // Lock fields when confirmation is selected
+            confirmCheckbox.addEventListener("change", () => {
+                const isConfirmed = confirmCheckbox.checked;
+                englishText.readOnly = isConfirmed;
+                nepaliText.readOnly = isConfirmed;
+            });
+        }
+
+        // Initialize with one input field on page load
+        addInputField();
+    </script>
+</body>
+
+</html>
